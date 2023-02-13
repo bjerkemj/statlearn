@@ -106,13 +106,10 @@ Find the expected MSE at $\mathbf{x}_0,$ $E[(y_0 - \widetilde{f}(\mathbf{x}_0))^
 $$
 \displaylines{
     E[(y_0 - \widetilde{f}(\mathbf{x}_0))^2]=Var(\widetilde{f}(\mathbf{x}_0)) + (Bias(\widetilde{f}(\mathbf{x}_0)))^2 + Var(\varepsilon)\cr\cr
-    
     Var(\widetilde{f}(\mathbf{x}_0)) = \mathbf{x}_0^T (\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\sigma^2}((\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top)^\top \mathbf{x}_0\cr\cr
-    
     (Bias(\widetilde{f}(\mathbf{x}_0)))^2 = (E(\mathbf{y}_0 - \widetilde{f}(\mathbf{x}_0)))^2\cr\
     (Bias(\widetilde{f}(\mathbf{x}_0)))^2 = (E(\mathbf{y}_0) - E(\widetilde{f}(\mathbf{x}_0)))^2\cr
         (Bias(\widetilde{f}(\mathbf{x}_0)))^2 = (\mathbf{y}_0 - \mathbf{x}_0^T (\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf X \boldsymbol \beta})^2\cr\cr
-
     Var(\varepsilon) = {\sigma^2}\cr\cr
     E[(y_0 - \widetilde{f}(\mathbf{x}_0))^2]=\mathbf{x}_0^T (\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\sigma^2}((\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top)^\top \mathbf{x}_0 + (Bias(\widetilde{f}(\mathbf{x}_0)))^2 + {\sigma^2}\cr
 }
@@ -145,7 +142,8 @@ library(ggplot2)
 bias <- function(lambda, X, x0, beta) {
   p <- ncol(X)
   inv <- solve(t(X) %*% X + lambda * diag(p))
-  value <- (t(x0)%*%(t(X)%*%X-lambda*diag(p))^-1%*%t(X)%*%X%*%beta)^2
+  ?solve
+  value <- (lambda - t(x0)%*%(t(X)%*%X-lambda*diag(p))^-1%*%t(X)%*%X%*%beta)^2
   return(value)
 }
 lambdas <- seq(0, 2, length.out = 500)
@@ -167,7 +165,10 @@ variance <- function(lambda, X, x0, sigma) {
   p <- ncol(X)
   inv <- solve(t(X) %*% X + lambda * diag(p))
   print(inv)
-  value <- ...
+  #print(t(x0)%*%inv%*%t(X))
+  #print(2 * t((t(X)%*%X + lambda * diag(p))^-1%*%t(X))%*%x0)
+  value <- t(x0)%*%inv%*%t(X) %*% (sigma^2 * diag(nrow(X))) %*% t((t(X)%*%X + lambda * diag(p))^-1%*%t(X))%*%x0
+  print(value)
   return(value)
 }
 lambdas <- seq(0, 2, length.out = 500)
@@ -364,8 +365,22 @@ test <- bigfoot[-train_ind, ]
 
 (i) (1P) Fit a **logistic regression** model using the training set, and perform the classification on the test set, using a 0.5 cutoff. How many of the reports were classified as clear sightings (class A, category 1)?
 
+```{r, echo = FALSE}
+summary(bigfoot)
+glm.bigfoot = glm(class ~ ., data = train, family=binomial)
+summary(glm.bigfoot)
+glm.probs <- predict(glm.bigfoot, test, type = "response")
+glm.pred <- rep(0, 912)
+glm.pred[glm.probs > 0.5] <-1
+table(glm.pred)
+# 441 sights classified as clear sightings.
+```
+
+
 (ii) (1P) Single choice:
 According to this model, how would the odds that an observation is classified as Class A change if the report contains the word "saw", compared to if it does not? (all other covariates stay the same)
+
+Using the summary(lm.bigfoot), we can see that the odds of an observation being classified Class A increases by 28% if the report contains the word "saw".
 
 ```{r, echo = FALSE}
 beta_saw <- 1.292176
@@ -383,12 +398,27 @@ beta_saw <- 1.292176
 
 (i) (1P) Fit a **QDA** model using the training set, and perform the classification on the test set, using a 0.5 cutoff. How many of the reports were classified as class A?
 
+```{r, echo = FALSE}
+require(MASS)
+train
+qda.fit <- qda(class ~ ., data = train)
+qda.fit
+
+qda.preds <- predict(qda.fit, test)
+table(qda.preds$class)
+# 626 sights classified as clear sightings.
+```
+
 (ii) (2P) Which statements about linear discriminant analysis and quadratic discriminant analysis are true and which are false? Say for *each* of them if it is true or false.
 
    1) QDA differs from LDA in that it assumes that observations of different classes come from Gaussian distributions with different covariance matrices.
+   True
    2) LDA is a better choice in cases where there are a lot of observations and so reducing bias is important.
+   False
    3) Even if the Bayes decision boundary is linear, QDA will be a better choice.
+   False
    4) QDA assumes that the observations are drawn from a multivariate Gaussian distribution with common mean vector and class-specific covariance matrix
+   False
 
 
 ## c) (2P) 
@@ -397,22 +427,87 @@ beta_saw <- 1.292176
 **R-hints:**
 In the `knn()` function set `prob=T` to ensure you get the class probabilities that you then need in d) (change the "`...`" to the correct input):
 ```{r,eval=FALSE}
-knnMod <- knn(train = ..., test = ..., cl = ..., k = 25, prob = TRUE)
+require(class)
+knnMod <- knn(train = train, test = test, cl = train$class, k = 25, prob = TRUE)
+knnProb <- attr(knnMod, "prob")
+table(knnMod)
+# 441 sights classified as clear sightings.
 ```
 
 (ii) (1P) Explain how you could choose the tuning parameter $k$ in a better way. How does $k$ relate to the bias-variance trade-off in this context?
+
+Choosing an optimal value for $k$ comes down to the bias-variance trade-off. A low $k$ will lead to a flexible fit, for example for $k=1$ all the model will interpolate all of the training data. Here the variance is high and the bias is low. Increasing $k$ will increase to higher bias and lower variance. This means the outliers will effect the model less. 
+
+There are no predefined statiscial models for choosing $k$.I would create a plot between different $k$ values and their errors. Based on this plot i would choose the $k$ that leads to the lowest error.
+
+
 
 ## d) (6P) 
 We now wish to compare the performance of the three models (logistic regression, QDA and KNN) on this dataset, in order to report back to BFRO on our results.
 
 i) (2P) In this case, are we interested in prediction or inference? What implications would it have for the model choice if we wanted to do prediction, and what implications would it have if we wanted to do inference? In conclusion, does the question of whether our aim is prediction or inference exclude any of the three candidate models in this case? (comment briefly)
 
+Prediction: Given a new measurement, we want to use an existing data set to build a model that reliably chooses the correct classification. If we wanted to do inference we would be interested in the interpretability of the model. In the case of inference QDA and KNN would be less interesting models. As the goal is prediction all the models are interesting, but we would choose the model with the lowest error for our predicting (our a combination of the models that produces the best result).
+
 ii) (3P) Make confusion matrices for the three predictions performed on the test set in a) - c), and report the confusion matrices, along with sensitivity and specificity. Explain briefly: What does sensitivity and specificity mean? Feel free to explain using the bigfoot example. 
 *Make sure it is clear in the confusion matrix which numbers show the predictions and which show the true values.*
 
+Confusion matrix for logistic regression:
+```{r,eval=FALSE}
+table(glm.pred, test$class)
+299/(299+148)
+323/(323+142)
+```
+Sensitivity = 299 / (299 + 148) =  66.9%
+Specificity = 323 / (323 + 142) =  69.5%
+
+Confusion matrix for QDA:
+```{r,eval=FALSE}
+table(qda.preds$class, test$class)
+389/(389+58)
+228/(228+237)
+```
+Sensitivity = 389 / (389 + 58) =  87.0%
+Specificity = 228 / (228 + 237) =  49.0%
+
+Confusion matrix for KNN:
+```{r,eval=FALSE}
+table(knnMod, test$class)
+362/(362+85)
+386/(386+79)
+```
+Sensitivity = 362 / (362 + 85) =  81.0%
+Specificity = 386 / (386 + 79) =  83.0%
+
+Sensitivity means how often is a true bigfoot sighting actually classified as Class A by the model.
+Specificity mean how often is a false bigfoot sighting actually classified as Class B by the model.
+Both are measures of accuracy. Good percentages for each score depends on the situation, there is no given standard that is universal.
+
 iii) (1P) Present a plot of the ROC curves and calculate the area under the curve (AUC) for each of the classifiers.
 
+```{r,eval=FALSE}
+install.packages("pROC")
+library(pROC)
+
+
+roc_glm <- roc(response = test$class, predictor = glm.probs)
+plot(roc_glm, col="blue", lwd=3, main="ROC curve GLM")
+auc(roc_glm)
+
+roc_qda <- roc(response = test$class, predictor = qda.preds$posterior[,"1"])
+plot(roc_qda, col="red", lwd=3, main="ROC curve QDA")
+auc(roc_qda)
+
+knnMod
+roc_knn <- roc(response = test$class, predictor = knnProb)
+plot(roc_knn, col="green", lwd=3, main="ROC curve KNN")
+auc(roc_knn)
+```
+
+
 iv) (1P) Summarize the performance of the three classifiers with words, based on the evaluations above. Which one would you choose? Justify briefly.
+
+QDA and logistic regression performs pretty equal and are bot good choices.WRITE MORE.
 
 **R-hints:**
 
