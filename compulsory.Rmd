@@ -25,6 +25,11 @@ install.packages("class")     # for KNN
 install.packages("pROC")      # calculate roc
 install.packages("plotROC")   # plot roc
 install.packages("ggmosaic")  # mosaic plot
+install.packages("knitr")
+install.packages("formatR")
+library(knitr)
+install.packages("tinytex")
+tinytex::install_tinytex()
 ```
 
 <!--  Etc (load all packages needed). -->
@@ -163,7 +168,6 @@ To get more information about the covariates in the dataset, you should run `?Sa
 
 ```{r desc, fig.width=10, fig.height=10, fig.cap="Pairs plot of the academic salary data set.",out.width = '70%'}
 library(carData)
-?Salaries
 GGally::ggpairs(Salaries)
 ```
 
@@ -171,8 +175,10 @@ After doing a descriptive analysis, Bert-Ernie makes a multiple linear regressio
 
 ```{r load_data}
 # Fit full model
-model1 <- lm(salary ~ ., data = Salaries)
+?Salaries
+model1 <- lm(salary ~ rank + discipline + yrs.since.phd + yrs.service + sex, data = Salaries)
 summary(model1)
+plot(model1)
 ```
 
 ## a) Categorical variables (2P)
@@ -181,20 +187,49 @@ The covariate `rank` is categorical, with the three possible values `AsstProf` (
 
 i) How does the `lm()` function encode for this type of covariate, and what are the interpretations of the `rankAssocProf` and `rankProf` estimates, respectively? (1P)
 
+FIKS FORMATERING
+The $lm()$ function by default uses the first of the three levels (of the covariate rank), `AsstProf`, as a reference level, and then converts the other levels, `AssocProf` and `Prof`, to a set of 'dummy variables'. These dummy variables are represented as binary variables. Naturally, only one of the levels can be 'active' at once, as a professor can only be either of the three different types of professors.
+The estimated coefficient for associate professor represents the difference in mean salary between associate professors and assistant professors (reference level), while the estimated coefficient for a full professor represents the difference in mean salary between full professors and assistant professors. In other words, associate professors are expected to earn at average 12907 more than an assistant professor, and full professors are expected to earn at average 45066 more than an assistant professor.
+
+
+
 The output from `summary()` tells us the $p$-values of `rankAssocProf` and `rankProf`, but not `rank` as a whole.
 
 ii) Perform an appropriate test to check whether there is evidence that `rank` as a whole has an impact on `salary`. The output from `summary()` is not enough to do this. (1P)
+
+```{r rank_test}
+library(carData)
+r.salary.rank <- lm(salary ~ yrs.service + yrs.since.phd + rank , data = Salaries)
+r.salary.no.rank <- lm(salary ~ yrs.service + yrs.since.phd, data = Salaries)
+anova(r.salary.rank, r.salary.no.rank)
+```
+Here we've done a comparison of two models, Model 1 and Model 2. In Model 1 we've included the variables: `yrs.service`, `yrs.since.PhD`, and `rank`. In Model 2 we also include `yrs.service` and `yrs.since.PhD`, but excluded the `rank`-variable. Running $anova()$ on these two models, gives us an $F$-value of 68.648 and a $p$-value of 2.2e-16. Determining which values of an F-test that are considered 'good' is not easy. In this case, with a relatively high $F$-value, together with a $p$-value which is practically 0, we consider that there is enough evidence that `rank` as a whole does have an impact on `salary`.
 
 ## b) Conflicting model results? (2P)
 
 Having heard of the gender wage-gap, Bert-Ernie is surprised to see that `model1` finds no evidence that `sex` has an effect on `salary`. To make sure nothing has gone wrong, he fits a new model with `sex` as the only covariate (along with an intercept).
 
-```{r sex_model}
+```{r sex_model_with_rank}
+library(ggplot2)
 sex_model <- lm(salary ~ sex, data = Salaries)
 summary(sex_model)
+
+ggplot(Salaries, aes(x = sex, y = salary, color = rank)) +
+  geom_jitter() +
+  labs(x = "Sex", y = "Salary", color = "Rank") +
+  scale_x_discrete(labels = c("Female", "Male"))
+```
+
+```{r sex_model_without_rank}
+sex_model <- lm(salary ~ sex, data = Salaries)
+boxplot(salary~sex, data=Salaries)
 ```
 
 The new model finds strong evidence that `sex` has an effect on `salary`. How would you explain the fact that `sex_model` finds evidence of `sex` impacting `salary`, but the full model `model1` does not? Make one or two figures to demonstrate your explanation, with proper figure captions explaining the figure(s). (2P)
+
+SVAR TIL B):
+A possibility is that the relationship between sex and salary is confounded with other variables in the full model. This might happen when another variable is associated with both the predictor (sex) and the outcome (salary), causing the apparent relationship between the predictor and outcome to 'lie'. To try and demonstrate this, we first created a a scatter-plot which shows the salary of men and women, with different colors representing the different levels of rank. We also created a box-plot of the salary for men and women, but without consideration of the rank. The box-plot clearly shows that there's a difference between the salary for men and women. Though when we compare the box-plot to the scatter-plot, we see..........  
+
 
 **Hint**: The descriptive analysis might be useful to identify what is going on.
 
@@ -206,11 +241,32 @@ Checking the assumptions of `model1`, Bert-Ernie observes that the assumptions o
 library(ggplot2)
 library(ggfortify)
 autoplot(model1, smooth.colour = NA)
+
 ```
 
 i) Based on the figure below, which assumptions are not fulfilled? (1P)
 
+Residuals vs fitted: We can clearly see that the expected value of the residuals are zero, which fulfills the first assumption. It looks like the variance of the residuals increase as the salary/fitted values increase, which does not fulfill the second assumption.
+
+Normal Q-Q: From this plot the residuals seems fairly normal distributed, at least up until.........
+
+Scale-location: We again see a pattern where the variance of the residuals increase as the salary/fitted values increase, which can confirm our earlier conclusion about the second assumption not being fulfilled.
+
+Residual vs leverage: There is a couple of outliers with high leverage, Cooks-distance......
+
 ii) Bert-Ernie has heard that sometimes such issues may be solved by transforming the response or covariates of the model, so he decides to try treating the log-transform of `salary` as the response in a new model. Implement the new model, and call it `model2`. Have the model assumptions improved in `model2` compared to `model1`? (1P)
+
+
+
+```{r fig_model_check_log-transform, fig.width=6, fig.height=6, fig.cap="Diagnostic plots for `model2`.",out.width = '60%'}
+log_salary <- log(Salaries$salary)
+#Får feilmelding under knitting (pga log_salary elns) dersom jeg skriver det slik:
+#model2 <- lm(log_salary ~ . -salary)
+model2 <- lm(log_salary ~ rank + discipline + yrs.since.phd + yrs.service + sex - salary, data = Salaries)
+summary(model2)
+library(ggplot2)
+autoplot(model2, smooth.colour = NA)
+```
 
 ## d) Interactions (2P)
 
@@ -218,13 +274,33 @@ Bert-Ernie hypothesizes that the impact of `sex` on salary in academia might be 
 
 i) Implement the model with the interaction term, and call it `model3` (1P).
 
+```{r fig_model_check_interaction, fig.width=6, fig.height=6, fig.cap="Diagnostic plots for `model3`.",out.width = '60%'}
+model3 <- lm(log_salary ~ rank + discipline + yrs.since.phd + yrs.service + sex + sex:yrs.since.phd -salary, data = Salaries)
+summary(model3)
+```
+
 ii) Interpret the results from `model3`. Is Bert-Ernie's hypothesis correct? (1P)
+
+From the summary of the linear model, we can see that the `p`-value for the interaction term is very high, and we conclude with Bert-Ernie's hypothesis being incorrect.
 
 ## e) Bootstrap (4P)
 
 You might have noticed that the $R^2$ we get from `summary()` is just a point estimate, without any uncertainty associated to it. We can use the bootstrap to estimate the uncertainty of the $R^2$ in our models. To this end:
 
 (i) Generate $1000$ bootstrap samples of the $R^2$ in `model1`. Use `set.seed(4268)` at the beginning of the bootstrap iterations to ensure that your results are reproducible (2P).
+```{r bootstrap}
+set.seed(4268)
+
+#Function to extract the R^2-value from the linear model
+getR2 <- function(data, indices) {
+  fit <- lm(salary ~ rank + discipline + yrs.since.phd + yrs.service + sex, data = data[indices,])
+  summary(fit)$r.squared
+}
+
+library(boot)
+boot_results <- boot(data = Salaries, statistic = getR2, R = 1000, strata = Salaries$rank)
+boot_results
+```
 (ii) Plot the respective distribution of the values (0.5P).
 (iii) Find the standard error and the 95% quantile interval (1P).
 (iv) Interpret what you see (0.5P).
