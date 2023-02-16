@@ -32,33 +32,17 @@ install.packages("ggmosaic")  # mosaic plot
 
 # Problem 1 (9P)
 
- We consider the following regression problem
-
-$$
-Y=f(\mathbf {x})+\varepsilon, \text{ where } \text{E}(\varepsilon)=0 \text{ and } \text{Var}(\varepsilon)=\sigma^2.
-$$
-
-Assume now that the true function $f(\mathbf {x})$ is a linear combination of the observed covariates, that is
-$f(\mathbf{x}) = \mathbf{x}^T\boldsymbol{\beta}=\beta_0 + \beta_1 x_1 + \ldots + \beta_p x_p,$ where $\mathbf{x}$ and $\boldsymbol{\beta}$ are both vectors of length $p+1.$
-
-We know that the OLS estimator in this case is $\hat{\boldsymbol{\beta}} = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{Y}$, with design matrix $\mathbf{X}$ and response vector $\mathbf{Y}$. In this task we will look at a competing estimator $\widetilde{\boldsymbol \beta} =(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf Y}$ (this is called the ridge regression estimator), where $\lambda\ge0$ is  a constant tuning parameter that controls the bias-variance trade-off. Observe that for $\lambda = 0$ the ridge regression estimator is equivalent to $\hat{\boldsymbol{\beta}}.$
-
-We will first derive mathematical formulas for the bias and variance of $\widetilde{\boldsymbol \beta}$ and then we will plot these curves in R.
-
 ## a) (1P)
-Find the expected value and the variance-covariance matrix of $\widetilde{\boldsymbol \beta}.$
-
 Here we find the expected value:
 
-$$
-\displaylines{
-    E(\widetilde{\boldsymbol \beta})=E((\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf Y})\cr
-    E(\widetilde{\boldsymbol \beta})=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{E(\bf Y})\cr
-    E(\widetilde{\boldsymbol \beta})=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{E(\bf X \boldsymbol \beta + \varepsilon})\cr
-    E(\widetilde{\boldsymbol \beta})=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{(\bf X \boldsymbol \beta + 0})\cr
-    E(\widetilde{\boldsymbol \beta})=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf X \boldsymbol \beta}\cr
-}
-$$
+\begin{align}
+    E(\widetilde{\boldsymbol \beta})&=E((\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf Y})\\
+    &=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{E(\bf Y})\\
+   &=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{E(\bf X \boldsymbol \beta + \varepsilon})\\
+    &=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{(\bf X \boldsymbol \beta + 0})\\
+    &=(\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf X \boldsymbol \beta}
+\end{align}
+
 Here we find the variance-covarince matrix:
 
 \begin{align}
@@ -67,11 +51,12 @@ Cov(\widetilde{\boldsymbol \beta})&=Cov((X^T X + \lambda I)^{-1}X^T Y)\\
 &=(X^TX + \lambda I)^{-1}X^T \sigma^2  I ((X^TX + \lambda I)^{-1}X^T)^T
 \end{align}
 
+
 ## b) (2P)
 Let $\widetilde{f}(\mathbf{x}_0)=\mathbf{x}_0^T \widetilde{\boldsymbol{\beta}}$ be the prediction at a new covariate vector $\mathbf{x}_0.$ 
 Using a), find the expected value and variance for $\widetilde{f}(\mathbf{x}_0)=\mathbf{x}_0^T \widetilde{\boldsymbol{\beta}}.$
 
-First we find the expecrted value:
+First we find the expected value:
 
 $$
 \displaylines{
@@ -79,6 +64,7 @@ $$
     E(\mathbf{x}_0^T \widetilde{\boldsymbol{\beta}})=\mathbf{x}_0^T (\mathbf{X}^\top\mathbf{X}+\lambda {\bf I})^{-1}\mathbf{X}^\top{\bf X \boldsymbol \beta}\cr
 }
 $$
+
 Then we find the variance:
 (Here we need to remember the rule for variance where we need to multiply the same term transposed at the back of the variance term.)
 
@@ -130,6 +116,8 @@ beta <- values$beta
 dim(beta)
 sigma <- values$sigma
 sigma
+summary(values)
+values$x0
 ```
 
 
@@ -142,8 +130,7 @@ library(ggplot2)
 bias <- function(lambda, X, x0, beta) {
   p <- ncol(X)
   inv <- solve(t(X) %*% X + lambda * diag(p))
-  ?solve
-  value <- (lambda - t(x0)%*%(t(X)%*%X-lambda*diag(p))^-1%*%t(X)%*%X%*%beta)^2
+  value <- (t(x0)%*%beta - t(x0)%*%inv%*%t(X)%*%X%*%beta)^2
   return(value)
 }
 lambdas <- seq(0, 2, length.out = 500)
@@ -164,11 +151,9 @@ Now we will create the variance function which takes the same inputs as the squa
 variance <- function(lambda, X, x0, sigma) {
   p <- ncol(X)
   inv <- solve(t(X) %*% X + lambda * diag(p))
-  print(inv)
-  #print(t(x0)%*%inv%*%t(X))
-  #print(2 * t((t(X)%*%X + lambda * diag(p))^-1%*%t(X))%*%x0)
-  value <- t(x0)%*%inv%*%t(X) %*% (sigma^2 * diag(nrow(X))) %*% t((t(X)%*%X + lambda * diag(p))^-1%*%t(X))%*%x0
-  print(value)
+  print(t(x0)%*%inv%*%t(X) * sigma^2)
+  print("dsa")
+  value <- sigma^2*t(x0)%*%inv%*%t(X) %*% t(inv%*%t(X))%*%x0
   return(value)
 }
 lambdas <- seq(0, 2, length.out = 500)
@@ -486,7 +471,6 @@ Both are measures of accuracy. Good percentages for each score depends on the si
 iii) (1P) Present a plot of the ROC curves and calculate the area under the curve (AUC) for each of the classifiers.
 
 ```{r,eval=FALSE}
-install.packages("pROC")
 library(pROC)
 
 
@@ -546,6 +530,17 @@ be written as $\hat y_{(-i)} = \mathbf{x}_i^\top \hat{\boldsymbol{\beta}}_{(-i)}
 
 4. The [Sherman–Morrison formula](https://en.wikipedia.org/wiki/Sherman%E2%80%93Morrison_formula) will be useful.
 
+We have:
+\begin{align}
+\hat y_{(-i)} &= \mathbf{x}_i^\top \hat{\boldsymbol{\beta}}_{(-i)}\\
+\hat{\boldsymbol{\beta}}_{(-i)} &= (X^T_{(-i)}X_{(-i)} )^{-1}X^T_{(-i)}Y_{(-i)}
+\end{align}
+
+Now we can find the LOOCV statistic as follows:
+\begin{align}
+CV &= \frac{1}{N} \sum_{i=1}^N \left({y_i - \hat{y}_i} \right)^2\\
+&= (X^T_{(-i)}X_{(-i)} )^{-1}X^T_{(-i)}Y_{(-i)}
+\end{align}
 ## b) Multiple choice (2P)
 
 Say for each statement below whether it is true or false.
