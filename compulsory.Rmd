@@ -4,8 +4,8 @@ title: "Compulsory exercise 1: Group 11"
 author: "Torbjørn Vatne, Ludvik Braathen and Johan Bjerkem"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
-  # html_document
-  pdf_document
+  html_document
+  # pdf_document
 ---
   
 ```{r setup, include=FALSE}
@@ -197,16 +197,12 @@ lambdas[which.min(exp_mse)]
 
 
 # Problem 2 (15P) 
-Bert-Ernie has his eye on a career in academia, but has not really decided on a field yet. Like most academics, his greatest concern is his future salary as a tenured professor. He comes across the `Salaries` dataset from the `carData` `R` package, and decides to perform a statistical analysis to try to find out how he can maximize his future salary as an academic. 
-
-To get more information about the covariates in the dataset, you should run `?Salaries` after loading the data. It's also a good idea to do a *descriptive analysis* of the data before fitting any models. A good starting point can be the `ggpairs()` function from the `GGally` package.
 
 ```{r desc, fig.width=10, fig.height=10, fig.cap="Pairs plot of the academic salary data set.",out.width = '70%'}
 library(carData)
 GGally::ggpairs(Salaries)
 ```
 
-After doing a descriptive analysis, Bert-Ernie makes a multiple linear regression model with all covariates included, which he calls `model1`.
 
 ```{r load_data}
 # Fit full model
@@ -218,19 +214,10 @@ plot(model1)
 
 ## a) Categorical variables (2P)
 
-The covariate `rank` is categorical, with the three possible values `AsstProf` (assistant professor), `AssocProf` (associate professor) and `Prof` (full professor).
+i) The $lm()$ function by default uses the first of the three levels (of the covariate rank), `AsstProf`, as a reference level, and then converts the other levels, `AssocProf` and `Prof`, to a set of 'dummy variables'. These dummy variables are represented as binary variables. Naturally, only one of the levels can be 'active' at once, as a professor can only be either of the three different types of professors.
+The estimated coefficient for associate professor represents the difference in mean salary between associate professors and assistant professors (reference level), while the estimated coefficient for a full professor represents the difference in mean salary between full professors and assistant professors. In other words, associate professors are expected to earn at average 12907 more than an assistant professor, and full professors are expected to earn at average 45066 more than an assistant professor. ***FIKS FORMATERING***
 
-i) How does the `lm()` function encode for this type of covariate, and what are the interpretations of the `rankAssocProf` and `rankProf` estimates, respectively? (1P)
-
-FIKS FORMATERING
-The $lm()$ function by default uses the first of the three levels (of the covariate rank), `AsstProf`, as a reference level, and then converts the other levels, `AssocProf` and `Prof`, to a set of 'dummy variables'. These dummy variables are represented as binary variables. Naturally, only one of the levels can be 'active' at once, as a professor can only be either of the three different types of professors.
-The estimated coefficient for associate professor represents the difference in mean salary between associate professors and assistant professors (reference level), while the estimated coefficient for a full professor represents the difference in mean salary between full professors and assistant professors. In other words, associate professors are expected to earn at average 12907 more than an assistant professor, and full professors are expected to earn at average 45066 more than an assistant professor.
-
-
-
-The output from `summary()` tells us the $p$-values of `rankAssocProf` and `rankProf`, but not `rank` as a whole.
-
-ii) Perform an appropriate test to check whether there is evidence that `rank` as a whole has an impact on `salary`. The output from `summary()` is not enough to do this. (1P)
+ii)
 
 ```{r rank_test}
 library(carData)
@@ -242,17 +229,30 @@ Here we've done a comparison of two models, Model 1 and Model 2. In Model 1 we'v
 
 ## b) Conflicting model results? (2P)
 
-Having heard of the gender wage-gap, Bert-Ernie is surprised to see that `model1` finds no evidence that `sex` has an effect on `salary`. To make sure nothing has gone wrong, he fits a new model with `sex` as the only covariate (along with an intercept).
-
 ```{r sex_model_with_rank}
 library(ggplot2)
 sex_model <- lm(salary ~ sex, data = Salaries)
 summary(sex_model)
 
-ggplot(Salaries, aes(x = sex, y = salary, color = rank)) +
+ggplot(Salaries, aes(x = sex, y = salary, col = rank)) +
   geom_jitter() +
   labs(x = "Sex", y = "Salary", color = "Rank") +
   scale_x_discrete(labels = c("Female", "Male"))
+
+library(gridExtra)
+p1 = ggplot(data = Salaries[Salaries$sex == 'Female',], aes(x = rank, fill = rank)) +
+  geom_bar(position = "identity", alpha = 0.5, aes(y = ..prop.., group = 1)) +
+  ggtitle("Density of Ranks for Females") +
+  ylab("Percentage") +
+  scale_y_continuous(labels = scales::percent)
+
+p2 = ggplot(data = Salaries[Salaries$sex == 'Male',], aes(x = rank, fill = rank)) +
+  geom_bar(position = "identity", alpha = 0.5, aes(y = ..prop.., group = 1)) +
+  ggtitle("Density of Ranks for Males") +
+  ylab("Percentage") +
+  scale_y_continuous(labels = scales::percent)
+
+grid.arrange(p1, p2, nrow = 2)
 ```
 
 ```{r sex_model_without_rank}
@@ -260,17 +260,14 @@ sex_model <- lm(salary ~ sex, data = Salaries)
 boxplot(salary~sex, data=Salaries)
 ```
 
-The new model finds strong evidence that `sex` has an effect on `salary`. How would you explain the fact that `sex_model` finds evidence of `sex` impacting `salary`, but the full model `model1` does not? Make one or two figures to demonstrate your explanation, with proper figure captions explaining the figure(s). (2P)
+There can be two reasons:
 
-SVAR TIL B):
-A possibility is that the relationship between sex and salary is confounded with other variables in the full model. This might happen when another variable is associated with both the predictor (sex) and the outcome (salary), causing the apparent relationship between the predictor and outcome to 'lie'. To try and demonstrate this, we first created a a scatter-plot which shows the salary of men and women, with different colors representing the different levels of rank. We also created a box-plot of the salary for men and women, but without consideration of the rank. The box-plot clearly shows that there's a difference between the salary for men and women. Though when we compare the box-plot to the scatter-plot, we see..........  
+1. There are relatively few observations on females compared to men, which makes the error variance higher, which then increases the p-value of the predictor. Had there been more female observations, it is likely that Std. error would decrease, which then would make the p-value more significant. With a sexMale parameter of 4783.5 it seems that sex correlates with salary. This is even more clear in the model with sex as the only predictor, where the p-value also is more significant. 
 
+2. Another possible reason why sex seems insignificant in model1 might be that there is another variable explaining the difference in salaries for the two sexes; Rank. There is a high correlation between Rank and salary, and looking at the barplots, we see that a high percentage of men are professors, however a much lower percentage of females are professors. 
 
-**Hint**: The descriptive analysis might be useful to identify what is going on.
 
 ## c) Model assumptions and transformation (2P)
-
-Checking the assumptions of `model1`, Bert-Ernie observes that the assumptions of the linear regression model are not fulfilled in `model1`.
 
 ```{r fig_model_check, fig.width=6, fig.height=6, fig.cap="Diagnostic plots for `model1`.",out.width = '60%'}
 library(ggplot2)
@@ -279,19 +276,11 @@ autoplot(model1, smooth.colour = NA)
 
 ```
 
-i) Based on the figure below, which assumptions are not fulfilled? (1P)
+i) In the Residuals vs fitted plot, we can clearly see that the expected value of the residuals are zero, which fulfills the first assumption. However, the variance of the residuals is not constant over the fitted values, meaning there is no homoscedasticity. In other words, the residuals are not normally distributed with a constant variance. This can be seen in the Scale-Location and Normal Q-Q plots too.
 
-Residuals vs fitted: We can clearly see that the expected value of the residuals are zero, which fulfills the first assumption. It looks like the variance of the residuals increase as the salary/fitted values increase, which does not fulfill the second assumption.
+The assumption that there are no influentual outliers is unfulfilled as there are high-residual points with high leverage
 
-Normal Q-Q: From this plot the residuals seems fairly normal distributed, at least up until.........
-
-Scale-location: We again see a pattern where the variance of the residuals increase as the salary/fitted values increase, which can confirm our earlier conclusion about the second assumption not being fulfilled.
-
-Residual vs leverage: There is a couple of outliers with high leverage, Cooks-distance......
-
-ii) Bert-Ernie has heard that sometimes such issues may be solved by transforming the response or covariates of the model, so he decides to try treating the log-transform of `salary` as the response in a new model. Implement the new model, and call it `model2`. Have the model assumptions improved in `model2` compared to `model1`? (1P)
-
-
+ii)
 
 ```{r fig_model_check_log-transform, fig.width=6, fig.height=6, fig.cap="Diagnostic plots for `model2`.",out.width = '60%'}
 log_salary <- log(Salaries$salary)
@@ -303,26 +292,21 @@ library(ggplot2)
 autoplot(model2, smooth.colour = NA)
 ```
 
+The residual variance has become somewhat more constant, but not much better. Influentual outliers does not seem to have improved.
+
 ## d) Interactions (2P)
 
-Bert-Ernie hypothesizes that the impact of `sex` on salary in academia might be stronger in older generations. While keeping the log-transformed response and all the other covariates in the model he therefore decides to design a model with an interaction term between `sex` and `yrs.since.phd`.
-
-i) Implement the model with the interaction term, and call it `model3` (1P).
-
+i)
 ```{r fig_model_check_interaction, fig.width=6, fig.height=6, fig.cap="Diagnostic plots for `model3`.",out.width = '60%'}
 model3 <- lm(log_salary ~ rank + discipline + yrs.since.phd + yrs.service + sex + sex:yrs.since.phd -salary, data = Salaries)
 summary(model3)
 ```
 
-ii) Interpret the results from `model3`. Is Bert-Ernie's hypothesis correct? (1P)
-
-From the summary of the linear model, we can see that the `p`-value for the interaction term is very high, and we conclude with Bert-Ernie's hypothesis being incorrect.
+ii) From the summary of the linear model, we can see that the `p`-value for the interaction term is very high, and we conclude with Bert-Ernie's hypothesis being incorrect.
 
 ## e) Bootstrap (4P)
 
-You might have noticed that the $R^2$ we get from `summary()` is just a point estimate, without any uncertainty associated to it. We can use the bootstrap to estimate the uncertainty of the $R^2$ in our models. To this end:
-
-(i) Generate $1000$ bootstrap samples of the $R^2$ in `model1`. Use `set.seed(4268)` at the beginning of the bootstrap iterations to ensure that your results are reproducible (2P).
+(i)
 ```{r bootstrap}
 set.seed(4268)
 
@@ -335,16 +319,34 @@ getR2 <- function(data, indices) {
 library(boot)
 boot_results <- boot(data = Salaries, statistic = getR2, R = 1000, strata = Salaries$rank)
 boot_results
-```
-(ii) Plot the respective distribution of the values (0.5P).
-(iii) Find the standard error and the 95% quantile interval (1P).
-(iv) Interpret what you see (0.5P).
 
-Throughout, show your R code and printouts.
+```
+(ii)
+
+```{r bootstrap_plot}
+# Plot the distribution of R-squared values
+hist(boot_results$t, main = "Bootstrap Distribution of R-Squared", 
+     xlab = "R-Squared", col = "lightblue", border = "white")
+abline(v = mean(boot_results$t), col = "red")
+```
+
+(iii)
+
+```{r bootstrap_quantiles}
+
+se = sd(boot_results$t)
+se
+
+quant = boot_results$t[25:975] # 95%  quantile, removing bottom and top 2.5%.
+summary(quant)
+
+```
+
+(iv) Original R-squared was calculated to 0.5249 and bootstrap estimates 0.4546766 with a 95% confidence interval of [0.3761, 0.5470]. From this we see that the original R-squared calculated lies within the 95% confidence interval.
+
 
 ## f) Picking a field (3P)
-
-We (and Bert-Ernie) now assume that `model1` is the correct (that is, the data-generating) model. After some character development (namely, all this R coding is giving him a headache) Bert-Ernie has figured out that he would rather work in a theoretical field than an applied field. But, money-conscious as always, he decides that he will follow this dream if and only if his model predicts that $20$ years after finishing his PhD he will be earning *at least* $75\ 000$\$ every nine months, with $95\%$ certainty. He does not care how much he earns, as long as it is more than $75\ 000$\$. He is sure that he will get a permanent position immediately upon finishing his PhD (so his `yrs.since.phd` will equal his `yrs.service`), that he will have become full professor within the $20$ years and that his sex will still be male.
+i)
 
 ```{r prediction}
 # Make a data frame containing two new observations, corresponding to
@@ -357,23 +359,46 @@ bert_ernie <- data.frame(rank = c("Prof", "Prof"),
 # Use the full model to predict his salary
 preds <- predict(object = model1,
                  newdata = bert_ernie,
-                 interval = "confidence",
-                 level = 0.975) # Not 0.95 since we don't care about upper limit
+                 interval = "prediction", # corrected confidence to prediction
+                 level = 0.95) # Not 0.95 since we don't care about upper limit # Corrected 0.975 to 0.95
 # Check predictions
 preds
 # Check if lower limit for salary in a theoretical field is large enough
 preds[1, 2] > 75000
 ```
 
-He sees that the lower limit of the computed interval beats $75\ 000$\$ by a fair amount, so he breathes a sigh of relief. However, he has made two errors in the call to `predict()`.
+Many sleepless nights of debugging R code are looming in his future unfortunately.
 
-i) Correct his mistakes, and make the calculation he was actually interested in, still using `predict()`. Will he still be able to follow his dream after making the correction, or are many sleepless nights of debugging R code looming in his future? (1P)
+ii) The analytic expression for the lower limit of the prediction interval:
 
-ii) Write down an analytic expression for the correct lower limit, and implement the analytic expression in R to make sure you get the same result as from `predict()`.  (2P)
+$$
+\displaylines{
+    PI_{lower} = \boldsymbol{x}_0^T \hat{\boldsymbol{\beta}} - t_{n-p} (1-\alpha/2) \hat{\sigma} \sqrt{1+ \boldsymbol{x}_0^T (X^TX)^{-1} \boldsymbol{x}_0}
+    
+    
+  \cr
+  \hat{\boldsymbol{\beta}} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}
+}
+$$
 
-**Hint**: see Recommended Exercises Week 3. 
+```{r PI_lower_calculated}
+x_0 = c(1, 0, 1, 0, 20, 20, 1)
+beta_hat = coef(model1)
+alpha = 0.05
+sd_hat = summary(model1)$sigma
+X <- model.matrix(~ rank + discipline + yrs.since.phd + yrs.service + sex, data = Salaries)
 
-**R-hint**: In the implementation you might have use for the functions `model.matrix()`, `coef()`, `sigma()`, `df.residual()`, `qt()`, `sqrt()`, `solve()` and `t()`, and the matrix multiplication operator `%*%`.
+n = nrow(Salaries)
+
+
+p = ncol(Salaries)-1 # should this be ncol of X or Salaries (-1) ??
+
+qt(1-alpha/2, df=n-p) # this gives the wrong number..
+PI_lower = t(x_0) %*% beta_hat - qt(1-alpha/2, df=n-p) * sd_hat * sqrt(1 + t(x_0) %*% solve(t(X) %*% X) %*% x_0)
+PI_lower
+```
+
+Not correct, don't know what's wrong.
 
 # Problem 3 (13P)
 The Bigfoot Field Researchers Organization (BFRO) is an organization dedicated to investigating the bigfoot mystery, and for years they have been collecting reported sightings in a database. They manually classify their reports into
@@ -505,33 +530,71 @@ probKNN <- ifelse(knnMod == 0,
 # Problem 4 (6P)
 
 ## a) (4P)
-
-To calculate the LOOCV statistic when we have $N$ training data points we typically have to fit $N$ models and evaluate the error of each fit on its left out observation.
-This task can be computationally intensive when $N$ is large. Fortunately, for linear models there is formula for doing this with fitting just the full data model.
-
-Show that for the linear regression model $Y = \mathbf{X} \beta + \varepsilon$ the LOOCV statistic can be computed by the following formula
+General formula for CV:
 
 $$
-\text{CV} = \frac{1}{N} \sum_{i=1}^N \left( \frac{y_i - \hat{y}_i}{1 - h_{i}} \right)^2\ ,
+CV_{K} = \sum_{i=1}^{n} \frac{n_k}{{N}}MSE_k \ , \ \ \ \  \ \ \ \ \ \  MSE_k = \sum_{i \in C_k} (y_i - \hat{y}_{(-i)})^2
 $$
-where  $h_i = \mathbf{x}_i^\top \left( \mathbf{X}^\top \mathbf{X} \right)^{-1} \mathbf{x}_i$ and $\mathbf{x}_i^\top$ is the $i$th row of $\mathbf{X}$.
+In LOOCV we have $K=N$, which means that $C_k=k$, and $n_k=1$. This gives
 
-**Hints:**
+$$
+CV = \frac{1}{N} \sum_{i=1}^{n} (y_i - \hat{y}_{(-i)})^2
+$$
+We also have 
 
-1. You need to calculate $\hat{y}_{(-i)},$ which is the predicted value of $y$ when the $i$th observation is kept out. This can
-be written as $\hat y_{(-i)} = \mathbf{x}_i^\top \hat{\boldsymbol{\beta}}_{(-i)}$.
+$$
+\hat{y}_{(-i)} = \boldsymbol{x}_i^\top \hat{\boldsymbol{\beta}}_{(-i)}
+\\ \hat{\boldsymbol{\beta}}_{(-i)} = (\mathbf{X}_{(-i)}^\top \mathbf{X}_{(-i)})^{-1} \mathbf{X}_{(-i)}^\top \mathbf{y}_{(-i)} 
+$$
+Hint 2 and 3 then gives us
+$$
+\hat{\boldsymbol{\beta}}_{(-i)} = (\mathbf{X}^\top \mathbf{X} - \mathbf{x}_i\mathbf{x}_i^\top)^{-1} (\mathbf{X}^\top \mathbf{y}-\mathbf{x}_i y_i)
+$$
+The Sherman-Morrison formula then gives
 
-2. $\mathbf{X}_{(-i)}^\top \mathbf{X}_{(-i)} = \mathbf{X}^\top \mathbf{X} - \mathbf{x}_i\mathbf{x}_i^\top,$ where $\mathbf{X}_{(-i)}$ is the $\mathbf{X}$ matrix without the $i$th row.
+$$
+\hat{\boldsymbol{\beta}}_{(-i)} = 
+\left(
+(\mathbf{X}^\top \mathbf{X})^{-1}
+- \frac{
+(\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{x}_i\mathbf{x}_i^\top (\mathbf{X}^\top \mathbf{X})^{-1}
+}
+{
+1+ \mathbf{x}_i^\top (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{x}_i
+}
+\right)
+(\mathbf{X}^\top \mathbf{y}-\mathbf{x}_i y_i )
+\\
+\Rightarrow \hat{y}_{(-i)} = 
+\boldsymbol{x}_i^\top
+\left(
+(\mathbf{X}^\top \mathbf{X})^{-1}
+- \frac{
+(\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{x}_i\mathbf{x}_i^\top (\mathbf{X}^\top \mathbf{X})^{-1}
+}
+{
+1+ h_i
+}
+\right)
+(\mathbf{X}^\top \mathbf{y}-\mathbf{x}_i y_i )
+\\
+\Rightarrow 
+y_i - \hat{y}_{(-i)} = 
+y_i - 
+\boldsymbol{x}_i^\top
+\left(
+(\mathbf{X}^\top \mathbf{X})^{-1}
+- \frac{
+(\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{x}_i\mathbf{x}_i^\top (\mathbf{X}^\top \mathbf{X})^{-1}
+}
+{
+1+ h_i
+}
+\right)
+(\mathbf{X}^\top \mathbf{y}-\mathbf{x}_i y_i )
+=^? \frac{y_i-\hat{y}_i}{1-h_i}
+$$
 
-3. Analogously $\mathbf{X}_{(-i)}^\top \mathbf{y}_{(-i)} = \mathbf{X}^\top \mathbf{y}-\mathbf{x}_i y_i$.
-
-4. The [Sherman–Morrison formula](https://en.wikipedia.org/wiki/Sherman%E2%80%93Morrison_formula) will be useful.
 
 ## b) Multiple choice (2P)
-
-Say for each statement below whether it is true or false.
-
-(i) The LOOCV will lead to more bias, but less variance than $10$-fold CV in the estimated prediction error.
-(ii) The formula from **a)** is not valid for polynomial regression.
-(iii) The formula from **a)** is valid when we use the log transform of the response in linear regression.
-(iv) The validation set-approach is the same as $2$-fold CV.
+FALSE, FALSE, TRUE, FALSE
