@@ -4,8 +4,8 @@ title: "Compulsory exercise 1: Group 11"
 author: "Torbjørn Vatne, Ludvik Braathen and Johan Bjerkem"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
-  html_document
-  # pdf_document
+  #html_document
+  pdf_document
 ---
   
 ```{r setup, include=FALSE}
@@ -323,17 +323,19 @@ i)
 # Make a data frame containing two new observations, corresponding to
 # Bert-Ernie's two possible futures
 bert_ernie <- data.frame(rank = c("Prof", "Prof"),
-                         discipline = c("A", "B"), # Theoretical, applied
+  discipline = c("A", "B"),
                          yrs.since.phd = c(20, 20),
                          yrs.service = c(20, 20),
                          sex = c("Male", "Male"))
 # Use the full model to predict his salary
 preds <- predict(object = model1,
                  newdata = bert_ernie,
-                 interval = "prediction", # corrected confidence to prediction
-                 level = 0.95) # Not 0.95 since we don't care about upper limit # Corrected 0.975 to 0.95
-# Check predictions
+                 interval = "prediction", 
+                 level = 0.95) 
 preds
+                 # corrected confidence to prediction
+# Not 0.95 since we don't care about upper limit # Corrected 0.975 to 0.95
+# Check predictions
 # Check if lower limit for salary in a theoretical field is large enough
 preds[1, 2] > 75000
 ```
@@ -342,15 +344,11 @@ Many sleepless nights of debugging R code are looming in his future unfortunatel
 
 ii) The analytic expression for the lower limit of the prediction interval:
 
-$$
-\displaylines{
+
+\begin{align}
     PI_{lower} = \boldsymbol{x}_0^T \hat{\boldsymbol{\beta}} - t_{n-p} (1-\alpha/2) \hat{\sigma} \sqrt{1+ \boldsymbol{x}_0^T (X^TX)^{-1} \boldsymbol{x}_0}
-    
-    
-  \cr
-  \hat{\boldsymbol{\beta}} = (\mathbf{X}^\top \mathbf{X})^{-1} \mathbf{X}^\top \mathbf{y}
-}
-$$
+\end{align}
+
 
 ```{r PI_lower_calculated}
 x_0 = c(1, 0, 1, 0, 20, 20, 1)
@@ -373,7 +371,7 @@ Not correct, don't know what's wrong.
 
 # Problem 3 (13P)
 
-```{r,  eval=TRUE}
+```{r,  eval=TRUE, echo= FALSE}
 bigfoot_original <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-09-13/bigfoot.csv")
 library(dplyr)
 # Prepare the data:
